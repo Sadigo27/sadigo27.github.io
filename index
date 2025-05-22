@@ -1,0 +1,490 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neon Games - Магазин видеоигр</title>
+  <link rel="icon" href="data:image/x-icon;base64,AAABAAEAAQEAAAEAIAAwAAAAFgAAACgAAAABAAAAAgAAAAEAIAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAA">
+  <style>
+    body {
+      background-color: #111827;
+      color: white;
+      font-family: sans-serif;
+      margin: 0;
+    }
+    html {
+      scroll-behavior: smooth;
+    }
+    .parallax {
+      background-attachment: fixed;
+      background-size: cover;
+      background-position: center;
+      height: 24rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .neon {
+      background: linear-gradient(45deg, #1e3a8a, #6b21a8);
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.5), 0 0 20px rgba(168, 85, 247, 0.5);
+      transition: all 0.3s ease;
+      border: none;
+      color: white;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-radius: 0.25rem;
+    }
+    .neon:hover {
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.8), 0 0 30px rgba(168, 85, 247, 0.8);
+    }
+    .card {
+      background-color: #1f2937;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+    }
+    .neon-text {
+      text-shadow: 0 0 5px rgba(59, 130, 246, 0.8), 0 0 10px rgba(168, 85, 247, 0.8);
+    }
+    .filter-active {
+      background: linear-gradient(45deg, #3b82f6, #a855f7);
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+    }
+    header {
+      background-color: #1f2937;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    nav {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+    .filter-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+    .card img {
+      width: 100%;
+      height: 12rem;
+      object-fit: cover;
+    }
+    .card-content {
+      padding: 1rem;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .modal-content {
+      background-color: #1f2937;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      width: 100%;
+      max-width: 28rem;
+    }
+    .modal-content input,
+    .modal-content select {
+      width: 100%;
+      padding: 0.5rem;
+      background-color: #374151;
+      color: white;
+      border: none;
+      border-radius: 0.25rem;
+      margin-bottom: 1rem;
+    }
+    .modal-content button {
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    .hidden {
+      display: none;
+    }
+    @media (max-width: 640px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .parallax {
+        height: 16rem;
+      }
+      nav {
+        flex-direction: column;
+        gap: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <h1 class="neon-text" style="font-size: 1.5rem; font-weight: bold;">Neon Games</h1>
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <div id="user-info" class="hidden">
+          <span id="user-email"></span>
+          <button id="logout-btn" class="neon">Выйти</button>
+        </div>
+        <button id="login-btn" class="neon">Войти</button>
+        <button id="cart-btn" class="neon">Корзина (<span id="cart-count">0</span>)</button>
+      </div>
+    </nav>
+  </header>
+
+  <section class="parallax" style="background-image: url('https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')">
+    <div class="container">
+      <h2 class="neon-text" style="font-size: 2.5rem; font-weight: bold; text-align: center;">Добро пожаловать в Neon Games!</h2>
+    </div>
+  </section>
+
+  <section class="container">
+    <div class="filter-buttons">
+      <button id="filter-all" class="neon filter-active">Все</button>
+      <button id="filter-pc" class="neon">ПК</button>
+      <button id="filter-console" class="neon">Консоли</button>
+    </div>
+
+    <div id="products" class="grid"></div>
+  </section>
+
+  <div id="auth-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="auth-title" class="neon-text" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;"></h2>
+      <input id="auth-email" type="email" placeholder="Email">
+      <input id="auth-password" type="password" placeholder="Пароль">
+      <button id="auth-submit" class="neon"></button>
+      <button id="auth-toggle" style="color: #60a5fa;"></button>
+    </div>
+  </div>
+
+  <div id="checkout-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 class="neon-text" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">Оформление заказа</h2>
+      <div id="cart-items" style="margin-bottom: 1rem;"></div>
+      <input id="checkout-email" type="email" placeholder="Email">
+      <input id="checkout-name" type="text" placeholder="Имя">
+      <select id="payment-method">
+        <option value="card">Карта</option>
+        <option value="sbp">СБП</option>
+        <option value="crypto">Криптовалюта</option>
+      </select>
+      <button id="complete-purchase" class="neon">Купить</button>
+    </div>
+  </div>
+
+  <script>
+    const products = [
+      { id: 1, name: 'Cyberpunk 2077', price: 3999, platforms: ['PC', 'PS5', 'Xbox'], image: '' },
+      { id: 2, name: 'God of War Ragnarök', price: 4999, platforms: ['PS5'], image: '' },
+      { id: 3, name: 'Super Mario Odyssey', price: 3499, platforms: ['Switch'], image: '' },
+      { id: 4, name: 'Elden Ring', price: 4299, platforms: ['PC', 'PS5', 'Xbox'], image: '' },
+      { id: 5, name: 'The Legend of Zelda: Tears of the Kingdom', price: 4599, platforms: ['Switch'], image: '' },
+      { id: 6, name: 'Baldur’s Gate 3', price: 3799, platforms: ['PC', 'PS5'], image: '' },
+      { id: 7, name: 'Halo Infinite', price: 3999, platforms: ['PC', 'Xbox'], image: '' },
+      { id: 8, name: 'Horizon Forbidden West', price: 4499, platforms: ['PS5'], image: '' },
+      { id: 9, name: 'Forza Horizon 5', price: 3699, platforms: ['PC', 'Xbox'], image: '' },
+      { id: 10, name: 'Hades', price: 1999, platforms: ['PC', 'Switch'], image: '' }
+    ];
+
+    let cart = JSON.parse(localStorage.getItem('cart')) || [];
+    let user = JSON.parse(localStorage.getItem('user')) || null;
+    let filter = 'all';
+    let isLogin = true;
+
+    const productsContainer = document.getElementById('products');
+    const cartCount = document.getElementById('cart-count');
+    const loginBtn = document.getElementById('login-btn');
+    const userInfo = document.getElementById('user-info');
+    const userEmail = document.getElementById('user-email');
+    const logoutBtn = document.getElementById('logout-btn');
+    const cartBtn = document.getElementById('cart-btn');
+    const authModal = document.getElementById('auth-modal');
+    const authTitle = document.getElementById('auth-title');
+    const authEmail = document.getElementById('auth-email');
+    const authPassword = document.getElementById('auth-password');
+    const authSubmit = document.getElementById('auth-submit');
+    const authToggle = document.getElementById('auth-toggle');
+    const checkoutModal = document.getElementById('checkout-modal');
+    const cartItems = document.getElementById('cart-items');
+    const checkoutEmail = document.getElementById('checkout-email');
+    const checkoutName = document.getElementById('checkout-name');
+    const paymentMethod = document.getElementById('payment-method');
+    const completePurchase = document.getElementById('complete-purchase');
+    const filterAll = document.getElementById('filter-all');
+    const filterPc = document.getElementById('filter-pc');
+    const filterConsole = document.getElementById('filter-console');
+
+    function renderProducts() {
+      productsContainer.innerHTML = '';
+      const filtered = filter === 'all' ? products :
+        filter === 'pc' ? products.filter(p => p.platforms.includes('PC')) :
+        products.filter(p => p.platforms.some(pl => ['PS5', 'Xbox', 'Switch'].includes(pl)));
+      filtered.forEach(product => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <img src="${product.image}" alt="${product.name}" style="width: 100%; height: 12rem; object-fit: cover;">
+          <div class="card-content">
+            <h3 style="font-size: 1.125rem; font-weight: 600;">${product.name}</h3>
+            <p style="color: #9ca3af;">${product.platforms.join(', ')}</p>
+            <p style="font-size: 1.25rem; font-weight: bold;">${product.price} ₽</p>
+            <button class="neon" style="width: 100%; margin-top: 0.5rem;" onclick="addToCart(${product.id})">В корзину</button>
+          </div>
+        `;
+        productsContainer.appendChild(div);
+      });
+    }
+
+    function updateCart() {
+      cartCount.textContent = cart.length;
+      cartItems.innerHTML = `<h3 style="font-size: 1.125rem; font-weight: 600;">Корзина</h3>`;
+      cart.forEach(item => {
+        const div = document.createElement('div');
+        div.style.display = 'flex';
+        div.style.justifyContent = 'space-between';
+        div.style.padding = '0.5rem 0';
+        div.innerHTML = `
+          <span>${item.name}</span>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>${item.quantity} x ${item.price} ₽</span>
+            <button style="color: #f87171;" onclick="removeFromCart(${item.id})">Удалить</button>
+          </div>
+        `;
+        cartItems.appendChild(div);
+      });
+      const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const totalDiv = document.createElement('p');
+      totalDiv.style.fontSize = '1.25rem';
+      totalDiv.style.fontWeight = 'bold';
+      totalDiv.textContent = `Итого: ${total} ₽`;
+      cartItems.appendChild(totalDiv);
+    }
+
+    function addToCart(productId) {
+      const product = products.find(p => p.id === productId);
+      const item = cart.find(i => i.id === productId);
+      if (item) {
+        item.quantity++;
+      } else {
+        cart.push({ ...product, quantity: 1 });
+      }
+      localStorage.setItem('cart', JSON.stringify(cart));
+      updateCart();
+    }
+
+    function removeFromCart(productId) {
+      cart = cart.filter(item => item.id !== productId);
+      localStorage.setItem('cart', JSON.stringify(cart));
+      updateCart();
+    }
+
+    function updateUser() {
+      if (user) {
+        loginBtn.classList.add('hidden');
+        userInfo.classList.remove('hidden');
+        userEmail.textContent = user.email;
+      } else {
+        loginBtn.classList.remove('hidden');
+        userInfo.classList.add('hidden');
+      }
+    }
+
+    function login() {
+      const users = JSON.parse(localStorage.getItem('users')) || [];
+      const found = users.find(u => u.email === authEmail.value && u.password === authPassword.value);
+      if (found) {
+        user = found;
+        localStorage.setItem('user', JSON.stringify(user));
+        authModal.classList.add('hidden');
+        authEmail.value = '';
+        authPassword.value = '';
+        updateUser();
+      } else {
+        alert('Неверный email или пароль');
+      }
+    }
+
+    function register() {
+      const users = JSON.parse(localStorage.getItem('users')) || [];
+      if (users.find(u => u.email === authEmail.value)) {
+        alert('Пользователь с таким email уже существует');
+        return;
+      }
+      const newUser = { email: authEmail.value, password: authPassword.value };
+      users.push(newUser);
+      localStorage.setItem('users', JSON.stringify(users));
+      user = newUser;
+      localStorage.setItem('user', JSON.stringify(user));
+      authModal.classList.add('hidden');
+      authEmail.value = '';
+      authPassword.value = '';
+      updateUser();
+    }
+
+    function logout() {
+      user = null;
+      localStorage.removeItem('user');
+      updateUser();
+    }
+
+    function checkout() {
+      if (!user) {
+        authModal.classList.remove('hidden');
+        return;
+      }
+      checkoutModal.classList.remove('hidden');
+      updateCart();
+    }
+
+    function completePurchaseFn() {
+      if (!checkoutEmail.value || !checkoutName.value) {
+        alert('Заполните все поля');
+        return;
+      }
+      const order = {
+        email: checkoutEmail.value,
+        name: checkoutName.value,
+        paymentMethod: paymentMethod.value,
+        items: cart,
+        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        date: new Date().toISOString()
+      };
+      const orders = JSON.parse(localStorage.getItem('orders')) || [];
+      orders.push(order);
+      localStorage.setItem('orders', JSON.stringify(orders));
+      cart = [];
+      localStorage.setItem('cart', JSON.stringify(cart));
+      checkoutModal.classList.add('hidden');
+      checkoutEmail.value = '';
+      checkoutName.value = '';
+      paymentMethod.value = 'card';
+      alert('Покупка успешно завершена!');
+      updateCart();
+    }
+
+    function updateAuthModal() {
+      authTitle.textContent = isLogin ? 'Вход' : 'Регистрация';
+      authSubmit.textContent = isLogin ? 'Войти' : 'Зарегистрироваться';
+      authToggle.textContent = isLogin ? 'Нет аккаунта? Зарегистрируйтесь' : 'Уже есть аккаунт? Войдите';
+    }
+
+    loginBtn.addEventListener('click', () => {
+      isLogin = true;
+      updateAuthModal();
+      authModal.classList.remove('hidden');
+    });
+
+    logoutBtn.addEventListener('click', logout);
+
+    cartBtn.addEventListener('click', checkout);
+
+    authSubmit.addEventListener('click', () => {
+      if (isLogin) login();
+      else register();
+    });
+
+    authToggle.addEventListener('click', () => {
+      isLogin = !isLogin;
+      updateAuthModal();
+    });
+
+    completePurchase.addEventListener('click', completePurchaseFn);
+
+    authModal.addEventListener('click', e => {
+      if (e.target === authModal) authModal.classList.add('hidden');
+    });
+
+    checkoutModal.addEventListener('click', e => {
+      if (e.target === checkoutModal) checkoutModal.classList.add('hidden');
+    });
+
+    filterAll.addEventListener('click', () => {
+      filter = 'all';
+      filterAll.classList.add('filter-active');
+      filterPc.classList.remove('filter-active');
+      filterConsole.classList.remove('filter-active');
+      renderProducts();
+    });
+
+    filterPc.addEventListener('click', () => {
+      filter = 'pc';
+      filterAll.classList.remove('filter-active');
+      filterPc.classList.add('filter-active');
+      filterConsole.classList.remove('filter-active');
+      renderProducts();
+    });
+
+    filterConsole.addEventListener('click', () => {
+      filter = 'console';
+      filterAll.classList.remove('filter-active');
+      filterPc.classList.remove('filter-active');
+      filterConsole.classList.add('filter-active');
+      renderProducts();
+    });
+
+    renderProducts();
+    updateCart();
+    updateUser();
+  </script>
+</body>
+</html>
